@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  node-exporter:
+    image: prom/node-exporter
+    ports:
+      - target: 9100
+        published: 9100
+        protocol: tcp
+        mode: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+    deploy:
+      mode: global
+      placement:
+        constraints:
+          - node.role == worker
