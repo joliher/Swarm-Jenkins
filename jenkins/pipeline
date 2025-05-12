@@ -1,0 +1,90 @@
+pipeline {
+    agent any
+
+    environment {
+        STACK_NAME = 'web'
+        LOG_FILE = "${env.WORKSPACE}/stack_monitor.log"
+        DATE_CMD = 'date "+%Y-%m-%d %H:%M:%S"'
+        TODAY = 'date "+%Y-%m-%d"'
+    }
+
+    stages {
+        stage('Inicializar log') {
+            steps {
+                script {
+                    def today = sh(script: "${TODAY}", returnStdout: true).trim()
+                    def exists = sh(script: "test -f ${LOG_FILE}", returnStatus: true) == 0
+                    if (exists) {
+                        def logDate = sh(script: "head -n 1 ${LOG_FILE} | cut -d ' ' -f1", returnStdout: true).trim()
+                        if (logDate != today) {
+                            sh "rm -f ${LOG_FILE}"
+                            sh """echo "\$(${DATE_CMD}): Se reinició el log para el día ${today}" > ${LOG_FILE}"""
+                        }
+                    } else {
+                        sh """echo "\$(${DATE_CMD}): Se creó el log para el día ${today}" > ${LOG_FILE}"""
+                    }
+                }
+            }
+        }
+
+        stage('Verificar stack') {
+            steps {
+                script {
+                    def stackCheck = sh(script: "docker stack ls | grep -w ${STACK_NAME}", returnStatus: true)
+                    if (stackCheck != 0) {
+                        def stackExists = sh(script: "docker stack ls | grep -w ${STACK_NAME}", returnStatus: true)
+    			        if (stackExists == 0) {
+        			        sh """echo "\$(${DATE_CMD}): El stack '${STACK_NAME}' ya existe, eliminándolo..." >> ${LOG_FILE}"""
+        			        sh "docker stack rm ${STACK_NAME}"  // Elimina el stack si ya existe
+        			        sh """echo "\$(${DATE_CMD}): Stack '${STACK_NAME}' eliminado." >> ${LOG_FILE}"""
+    			        }
+			            sh """echo "\$(${DATE_CMD}): El stack '${STACK_NAME}' no está desplegado, procediendo a desplegarlo..." >> ${LOG_FILE}"""
+			            sh "docker stack deploy -c stack.yml ${STACK_NAME}"
+                    } else {
+                        sh """echo "\$(${DATE_CMD}): El stack '${STACK_NAME}' está desplegado." >> ${LOG_FILE}"""
+                    }
+                }
+            }
+        }
+
+        stage('Verificar servicios') {
+            steps {
+                script {
+                    def servicesOutput = sh(script: "docker service ls --filter label=com.docker.stack.namespace=${STACK_NAME} --format '{{.Name}} {{.Replicas}}'", returnStdout: true).trim()
+                    def lines = servicesOutput.split('\n')
+
+                    for (line in lines) {
+                        def (name, replicas) = line.tokenize(' ')
+                        def (actual, expected) = replicas.split('/')
+
+                        if (actual != expected) {
+                            sh """echo "\$(${DATE_CMD}): Servicio ${name} tiene ${expected} réplica/s activas." >> ${LOG_FILE}"""
+                        } else {
+                            sh """echo "\$(${DATE_CMD}): Servicio ${name} está completamente operativo (${actual}/${expected})." >> ${LOG_FILE}"""
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Verificar nodos') {
+            steps {
+                script {
+                    def nodeStatus = sh(script: "docker node ls --format '{{.Hostname}} {{.Status}}' | grep -v Ready", returnStatus: true)
+                    if (nodeStatus == 0) {
+                        sh """echo "\$(${DATE_CMD}): Hay nodos fuera de línea." >> ${LOG_FILE}"""
+                    } else {
+                        sh """echo "\$(${DATE_CMD}): Todos los nodos están en estado Ready." >> ${LOG_FILE}"""
+                    }
+                }
+            }
+        }
+        stage('Separación') {
+            steps{
+                script{
+                    sh """echo "" >> ${LOG_FILE} """
+                }
+            }
+        }
+    }
+}
