@@ -40,6 +40,7 @@ pipeline {
     			        }
 			            sh """echo "\$(${DATE_CMD}): El stack '${STACK_NAME}' no está desplegado, procediendo a desplegarlo..." >> ${LOG_FILE}"""
 			            sh "docker stack deploy -c stack.yml ${STACK_NAME}"
+				    sh "docker stack deploy -c node.yml monitor "
                     } else {
                         sh """echo "\$(${DATE_CMD}): El stack '${STACK_NAME}' está desplegado." >> ${LOG_FILE}"""
                     }
