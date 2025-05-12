@@ -1,0 +1,10 @@
+services:
+  nginx:
+     image: jloliher/nginx-custom
+     ports:
+       - "80:80"
+     deploy:
+       mode: global
+       placement:
+         constraints:
+            -node.role == worker
