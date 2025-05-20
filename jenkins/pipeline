@@ -39,7 +39,7 @@ pipeline {
         			        sh """echo "\$(${DATE_CMD}): Stack '${STACK_NAME}' eliminado." >> ${LOG_FILE}"""
     			        }
 			            sh """echo "\$(${DATE_CMD}): El stack '${STACK_NAME}' no está desplegado, procediendo a desplegarlo..." >> ${LOG_FILE}"""
-			            sh "docker stack deploy -c stack.yml ${STACK_NAME}"
+			            sh "docker stack deploy -c stack-nginx.yml ${STACK_NAME}"
                     } else {
                         sh """echo "\$(${DATE_CMD}): El stack '${STACK_NAME}' está desplegado." >> ${LOG_FILE}"""
                     }
